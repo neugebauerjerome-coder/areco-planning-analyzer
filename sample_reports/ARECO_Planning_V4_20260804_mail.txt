@@ -1,0 +1,20 @@
+Objet : Contrôle V4 du planning du 2026-08-04
+
+Bonjour,
+
+Le planning comprend 49 interventions pour 23 techniciens actifs.
+
+Temps d'intervention : 122.55 h
+Temps de trajet : 18.48 h
+Total intervention + trajet : 141.03 h
+Distance totale : 924.0 km
+
+Journées supérieures à 10 h : CLS, SEL
+NAP sous 7 h 30 : BWI, DKA
+Alertes métier : 15
+
+Les détails figurent dans les rapports Excel et PDF joints.
+
+Cordialement,
+Jérôme Neugebauer
+Support Client - ARECO

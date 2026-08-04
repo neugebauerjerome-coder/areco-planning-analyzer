@@ -1,0 +1,4 @@
+{"kind":"match","sheet":"Toutes les équipes","address":"C21","value":"Almeida-Martins Lucas","formula":null,"match":"value"}
+{"kind":"match","sheet":"Toutes les équipes","address":"D21","value":"09200 Saint-Girons","formula":null,"match":"value"}
+{"kind":"match","sheet":"Toutes les équipes","address":"C41","value":"Almeida-Martins Lucas","formula":null,"match":"value"}
+{"kind":"match","sheet":"Toutes les équipes","address":"D41","value":"09200 Saint-Girons","formula":null,"match":"value"}

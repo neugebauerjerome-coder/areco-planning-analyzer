@@ -1,0 +1,14 @@
+{
+  "version": "4.0.1",
+  "dates": [
+    "2026-08-04"
+  ],
+  "interventions": 49,
+  "techniciens_actifs": 23,
+  "problemes": 15,
+  "problemes_par_categorie": {
+    "CONTRONICS_SKILL": 8,
+    "RESOURCE_UNKNOWN": 3,
+    "DUPLICATE": 4
+  }
+}

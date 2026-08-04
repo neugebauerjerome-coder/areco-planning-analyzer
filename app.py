@@ -1,135 +1,250 @@
 from __future__ import annotations
 
-import io
-import json
 import os
+import tempfile
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from areco_engine import (
-    AnalysisError,
-    analyze_planning,
-    create_v3_workbook,
-    load_reference_teams,
-)
+from areco_planning.analyzer.service import analyze_with_routes, analyses_to_frames
+from areco_planning.core.service import build_dataset
+from areco_planning.reports.service import export_all_reports
+from areco_planning.route_engine.cache import RouteCache
+from areco_planning.route_engine.ors_client import OpenRouteServiceClient
+
 
 APP_DIR = Path(__file__).resolve().parent
-DEFAULT_TEAMS = APP_DIR / "data" / "equipes_areco.csv"
-DEFAULT_RULES = APP_DIR / "data" / "regles_v3.json"
+TEAMS_PATH = APP_DIR / "areco_planning" / "data" / "toutes_les_equipes_areco.xlsx"
+RULES_PATH = APP_DIR / "areco_planning" / "config" / "rules_v4.json"
 
 st.set_page_config(
-    page_title="ARECO Planning Analyzer V3",
+    page_title="ARECO Planning Suite",
     page_icon="📊",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-st.title("ARECO Planning Analyzer V3")
-st.caption("Déposez l’export ARFITEC. L’application calcule les trajets OpenRouteService et génère le rapport V3.")
+st.markdown(
+    """
+    <style>
+      .areco-header {
+        background: linear-gradient(90deg,#17365D,#1F4E78);
+        padding: 22px 26px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 18px;
+      }
+      .areco-header h1 {margin:0;font-size:30px;}
+      .areco-header p {margin:7px 0 0 0;opacity:.9;}
+      div[data-testid="stMetric"] {
+        background:#F6F9FC;
+        border:1px solid #D9E5F1;
+        padding:14px;
+        border-radius:10px;
+      }
+      .small-note {color:#5D6D7E;font-size:0.9rem;}
+    </style>
+    <div class="areco-header">
+      <h1>ARECO Planning Suite Online V5.1</h1>
+      <p>Analyse ARFITEC, trajets OpenRouteService, alertes métier et rapports.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.header("Paramètres")
-    api_key = st.text_input(
-        "Clé API OpenRouteService",
-        value=(st.secrets.get("ORS_API_KEY", "") if hasattr(st, "secrets") else "") or os.getenv("ORS_API_KEY", ""),
-        type="password",
-        help="La clé reste dans la session du navigateur et n’est pas enregistrée dans le rapport.",
-    )
-    base_url = st.selectbox(
-        "Serveur OpenRouteService",
-        [
-            "https://api.heigit.org",
-            "https://api.openrouteservice.org",
-        ],
-        help="Utilisez api.heigit.org en priorité. L’ancien domaine reste proposé en secours.",
-    )
-    route_order = st.radio(
-        "Ordre des interventions",
-        ["Optimisé par proximité", "Ordre du fichier"],
-        index=0,
-    )
-    st.info(
-        "Régional : domicile → interventions → domicile.\n\n"
-        "Grand itinérant : domicile le lundi, tournée continue, retour domicile le vendredi."
-    )
 
-planning_file = st.file_uploader("Planning ARFITEC (.xlsx)", type=["xlsx"])
-teams_file = st.file_uploader(
-    "Référentiel équipes (facultatif)",
-    type=["xlsx", "csv"],
-    help="Sans fichier, la base ARECO intégrée est utilisée.",
+    secret_key = ""
+    try:
+        secret_key = st.secrets.get("ORS_API_KEY", "")
+    except Exception:
+        pass
+
+    api_key = secret_key or os.getenv("ORS_API_KEY", "")
+    if api_key:
+        st.success("Clé OpenRouteService configurée")
+    else:
+        api_key = st.text_input("Clé OpenRouteService", type="password")
+
+    optimize_order = st.checkbox("Optimiser l’ordre des magasins", value=True)
+    st.divider()
+    st.caption("LAL : Almeida-Martins Lucas — 09200 Saint-Girons")
+    st.caption("Contronics : numéro client commençant par B")
+
+uploaded = st.file_uploader(
+    "Déposez le planning Excel ARFITEC",
+    type=["xlsx"],
+    accept_multiple_files=False,
 )
 
-if planning_file:
-    st.success(f"Fichier chargé : {planning_file.name}")
+analyse = st.button(
+    "ANALYSER LE PLANNING",
+    type="primary",
+    use_container_width=True,
+    disabled=uploaded is None,
+)
 
-analyze = st.button("Analyser le planning", type="primary", disabled=planning_file is None)
-
-if analyze:
+if analyse:
     if not api_key:
-        st.error("Saisissez la clé OpenRouteService dans la barre latérale.")
+        st.error("La clé OpenRouteService n’est pas configurée.")
         st.stop()
 
-    try:
-        with st.status("Analyse en cours…", expanded=True) as status:
-            st.write("Lecture du planning")
-            planning_bytes = planning_file.getvalue()
+    with tempfile.TemporaryDirectory(prefix="areco_v51_") as temp_name:
+        temp_dir = Path(temp_name)
+        planning_path = temp_dir / uploaded.name
+        planning_path.write_bytes(uploaded.getvalue())
+        reports_dir = temp_dir / "reports"
+        cache = None
 
-            st.write("Chargement du référentiel ARECO")
-            teams = load_reference_teams(
-                uploaded_file=teams_file,
-                default_csv_path=DEFAULT_TEAMS,
-            )
-            rules = json.loads(DEFAULT_RULES.read_text(encoding="utf-8"))
+        try:
+            with st.status("Analyse en cours…", expanded=True) as status:
+                st.write("Lecture du planning ARFITEC")
+                dataset = build_dataset(planning_path, TEAMS_PATH, RULES_PATH)
 
-            st.write("Géocodage des domiciles et magasins")
-            st.write("Calcul des itinéraires routiers par technicien et par jour")
-            result = analyze_planning(
-                planning_bytes=planning_bytes,
-                teams=teams,
-                rules=rules,
-                api_key=api_key,
-                base_url=base_url,
-                optimize_order=route_order.startswith("Optimisé"),
-            )
+                st.write("Calcul des trajets routiers")
+                cache = RouteCache(temp_dir / "route_cache.sqlite")
+                provider = OpenRouteServiceClient(api_key, cache)
+                analyses, summary = analyze_with_routes(
+                    planning_path,
+                    TEAMS_PATH,
+                    RULES_PATH,
+                    provider,
+                    optimize_order=optimize_order,
+                )
 
-            st.write("Génération du classeur V3")
-            report_bytes = create_v3_workbook(result)
-            status.update(label="Analyse terminée", state="complete", expanded=False)
+                st.write("Génération des rapports")
+                reports = export_all_reports(
+                    reports_dir,
+                    analyses,
+                    summary,
+                    dataset,
+                    RULES_PATH,
+                )
+                daily, legs = analyses_to_frames(analyses)
 
-        k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("Interventions", result.summary["interventions"])
-        k2.metric("Techniciens actifs", result.summary["techniciens_actifs"])
-        k3.metric("Heures intervention", f'{result.summary["heures_intervention"]:.2f} h')
-        k4.metric("Temps de trajet", f'{result.summary["heures_trajet"]:.2f} h')
-        k5.metric("Total", f'{result.summary["heures_total"]:.2f} h')
+                st.session_state["summary"] = summary
+                st.session_state["daily"] = daily
+                st.session_state["legs"] = legs
+                st.session_state["issues"] = pd.DataFrame([
+                    {
+                        "Priorité": i.severity,
+                        "Catégorie": i.category,
+                        "Technicien": i.technician,
+                        "Intervention": i.intervention_number,
+                        "Message": i.message,
+                    }
+                    for i in dataset.issues
+                ])
+                st.session_state["excel"] = reports["excel"].read_bytes()
+                st.session_state["pdf"] = reports["pdf"].read_bytes()
+                st.session_state["mail"] = reports["mail"].read_text(encoding="utf-8")
 
-        st.subheader("Alertes prioritaires")
-        if result.alerts.empty:
-            st.success("Aucune alerte détectée.")
-        else:
-            st.dataframe(result.alerts, use_container_width=True, hide_index=True)
+                status.update(label="Analyse terminée", state="complete", expanded=False)
 
+        except Exception as exc:
+            st.exception(exc)
+        finally:
+            if cache is not None:
+                cache.close()
+
+if "summary" in st.session_state:
+    summary = st.session_state["summary"]
+    daily = st.session_state["daily"]
+    legs = st.session_state["legs"]
+    issues = st.session_state["issues"]
+
+    tabs = st.tabs(["📊 Synthèse", "👷 Techniciens", "🚗 Trajets", "🚨 Alertes", "📄 Rapports"])
+
+    with tabs[0]:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Interventions", summary["interventions"])
+        c2.metric("Techniciens actifs", summary["technicians_active"])
+        c3.metric("Temps d’intervention", f'{summary["intervention_hours"]:.2f} h')
+        c4.metric("Temps de trajet", f'{summary["travel_hours"]:.2f} h')
+
+        c5, c6, c7, c8 = st.columns(4)
+        c5.metric("Total", f'{summary["total_hours"]:.2f} h')
+        c6.metric("Distance", f'{summary["distance_km"]:.1f} km')
+        c7.metric("NAP < 7 h 30", len(summary["nap_under_7_5"]))
+        c8.metric("Journées > 10 h", len(summary["over_10_hours"]))
+
+        if summary["over_10_hours"]:
+            st.error("Surcharge : " + ", ".join(summary["over_10_hours"]))
+        if summary["nap_under_7_5"]:
+            st.warning("NAP sous 7 h 30 : " + ", ".join(summary["nap_under_7_5"]))
+
+        chart_data = daily[["Technicien", "Heures intervention", "Heures trajet"]].copy()
+        chart_data = chart_data.groupby("Technicien", as_index=False).sum().set_index("Technicien")
         st.subheader("Charge par technicien")
+        st.bar_chart(chart_data)
+
+    with tabs[1]:
+        st.subheader("Analyse détaillée")
+        status_filter = st.multiselect(
+            "Filtrer les statuts",
+            options=sorted(daily["Statut"].unique()),
+            default=sorted(daily["Statut"].unique()),
+        )
+        view = daily[daily["Statut"].isin(status_filter)].copy()
+        st.dataframe(view, use_container_width=True, hide_index=True)
+
+        technician = st.selectbox("Voir un technicien", sorted(daily["Technicien"].unique()))
+        tech_data = daily[daily["Technicien"] == technician]
+        st.dataframe(tech_data, use_container_width=True, hide_index=True)
+
+    with tabs[2]:
+        st.subheader("Détail des segments routiers")
+        tech_filter = st.multiselect(
+            "Techniciens",
+            options=sorted(legs["Technicien"].unique()),
+            default=sorted(legs["Technicien"].unique()),
+        )
         st.dataframe(
-            result.technician_summary,
+            legs[legs["Technicien"].isin(tech_filter)],
             use_container_width=True,
             hide_index=True,
         )
 
-        st.download_button(
-            "Télécharger le rapport V3",
-            data=report_bytes,
-            file_name=f'ARECO_Planning_Analyzer_V3_{result.analysis_date:%Y-%m-%d}.xlsx',
+    with tabs[3]:
+        st.subheader("Alertes métier")
+        if issues.empty:
+            st.success("Aucune alerte métier")
+        else:
+            priority = st.multiselect(
+                "Priorité",
+                options=sorted(issues["Priorité"].unique()),
+                default=sorted(issues["Priorité"].unique()),
+            )
+            st.dataframe(
+                issues[issues["Priorité"].isin(priority)],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    with tabs[4]:
+        d1, d2, d3 = st.columns(3)
+        d1.download_button(
+            "Télécharger Excel",
+            data=st.session_state["excel"],
+            file_name="ARECO_Planning_Analyse.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
+            use_container_width=True,
         )
-
-        with st.expander("Mail d’accompagnement"):
-            st.code(result.mail_text, language=None)
-
-    except AnalysisError as exc:
-        st.error(str(exc))
-    except Exception as exc:
-        st.exception(exc)
+        d2.download_button(
+            "Télécharger PDF",
+            data=st.session_state["pdf"],
+            file_name="ARECO_Planning_Analyse.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+        d3.download_button(
+            "Télécharger le mail",
+            data=st.session_state["mail"],
+            file_name="ARECO_Planning_Mail.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+        with st.expander("Afficher le mail"):
+            st.code(st.session_state["mail"], language=None)

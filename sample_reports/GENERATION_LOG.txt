@@ -1,0 +1,12 @@
+{'excel': PosixPath('/mnt/data/ARECO_Planning_Suite_V4_0_4/sample_reports/ARECO_Planning_V4_20260804.xlsx'), 'pdf': PosixPath('/mnt/data/ARECO_Planning_Suite_V4_0_4/sample_reports/ARECO_Planning_V4_20260804.pdf'), 'mail': PosixPath('/mnt/data/ARECO_Planning_Suite_V4_0_4/sample_reports/ARECO_Planning_V4_20260804_mail.txt'), 'mail_text': "Objet : Contrôle V4 du planning du 2026-08-04\n\nBonjour,\n\nLe planning comprend 49 interventions pour 23 techniciens actifs.\n\nTemps d'intervention : 122.55 h\nTemps de trajet : 18.48 h\nTotal intervention + trajet : 141.03 h\nDistance totale : 924.0 km\n\nJournées supérieures à 10 h : CLS, SEL\nNAP sous 7 h 30 : BWI, DKA\nAlertes métier : 15\n\nLes détails figurent dans les rapports Excel et PDF joints.\n\nCordialement,\nJérôme Neugebauer\nSupport Client - ARECO"}
+
+Spreadsheet runtime warmup failed during python startup
+Traceback (most recent call last):
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/patches/warm_spreadsheet_runtime_on_startup.py", line 26, in warm_spreadsheet_runtime_on_startup
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/spreadsheet_warmup.py", line 785, in warm_spreadsheet_runtime
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/spreadsheet_warmup.py", line 720, in _warm_feature_flows
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/spreadsheet_warmup.py", line 704, in _warm_collaboration_flows
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/generated/interface/models.py", line 30820, in hydrate_crdt_from_proto
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/rpc/remote.py", line 749, in __call__
+  File "/tmp/tmp.yTcnQsZYiA/artifact_tool_v2-2.8.4/artifact_tool/rpc/client.py", line 150, in call
+artifact_tool.rpc.client.RemoteError: hydrateCrdtFromProto requires an empty collaborative document.

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "areco-planning-suite"
+version = "4.0.5"
+description = "Core Engine ARECO Planning Suite"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2",
+  "openpyxl>=3.1",
+  "requests>=2.32",
+  "xlsxwriter>=3.2",
+  "reportlab>=4.2"
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3"]
+
+[project.scripts]
+areco-planning = "areco_planning.cli:main"
+areco-route = "areco_planning.route_cli:main"
+
+[tool.setuptools.packages.find]
+include = ["areco_planning*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

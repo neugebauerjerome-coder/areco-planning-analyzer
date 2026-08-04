@@ -1,0 +1,50 @@
+{
+  "version": "4.0.1",
+  "nap": [
+    "BWI",
+    "CLS",
+    "DKA",
+    "HMO",
+    "JLN",
+    "RMO",
+    "SEL"
+  ],
+  "grands_itinerants": [
+    "CGU",
+    "CLS",
+    "HMO",
+    "JCO",
+    "JFR",
+    "JLN",
+    "JSA",
+    "PCO",
+    "TDO",
+    "TDU"
+  ],
+  "exclus": [
+    "GGR",
+    "DME"
+  ],
+  "contronics": {
+    "client_prefix": "B",
+    "experts_confirmes": [
+      "HPE"
+    ]
+  },
+  "constraints": {
+    "JSA": {
+      "paris_intramuros_interdit": true,
+      "motif": "Camion trop grand"
+    }
+  },
+  "durations": {
+    "bureau_seul": 8.0,
+    "bureau_avec_interventions": 2.0,
+    "hmy": 2.0,
+    "zummo": 2.0
+  },
+  "thresholds": {
+    "nap_minimum_daily_hours": 7.5,
+    "maximum_daily_hours": 10.0
+  }
+}

@@ -1,0 +1,7 @@
+1. Déposer tous les fichiers décompressés sur GitHub.
+2. Ouvrir https://share.streamlit.io
+3. Repository : votre dépôt GitHub.
+4. Branch : main.
+5. Main file : app.py.
+6. Advanced settings > Secrets : ORS_API_KEY="VOTRE_CLE"
+7. Cliquer sur Deploy.
